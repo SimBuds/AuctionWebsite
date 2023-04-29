@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">Active Auctions</h1>
+    <div class="row">
+        {% for auction in auctions %}
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <img src="{{ auction.image }}" class="card-img-top" alt="{{ auction.name }}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ auction.name }}</h5>
+                    <p class="card-text">{{ auction.description }}</p>
+                    <p class="card-text">Starting Price: {{ auction.startPrice }}</p>
+                    <p class="card-text">Expires on: {{ auction.expiryDate.strftime("%Y-%m-%d %H:%M:%S") }}</p>
+                    <a href="{{ url_for('auction_detail', auction_id=auction.id) }}" class="btn btn-primary">View Details</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.7/dist/umd/popper.min.js" integrity="sha384-tQFzKBTt2H1zVx1M30aroT3W1zj3yTd0YNsPwnj8u4AJj4v7ywZ76p1gk7jKaxWY" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js" integrity="sha384-ts7l5d5z6rf0wwwz3EmspOM+ZJbUxIr6lO2JYQI73XfYhX9h3EvB33D3gZw5HUDA" crossorigin="anonymous"></script>
+{% endblock %}
