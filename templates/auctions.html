@@ -13,7 +13,6 @@
                     <p class="card-text">{{ auction.description }}</p>
                     <p class="card-text">Starting Price: {{ auction.startPrice }}</p>
                     <p class="card-text">Expires on: {{ auction.expiryDate.strftime("%Y-%m-%d %H:%M:%S") }}</p>
-                    <a href="{{ url_for('auction_detail', auction_id=auction.id) }}" class="btn btn-primary">View Details</a>
                 </div>
             </div>
         </div>

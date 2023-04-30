@@ -77,5 +77,31 @@ def auctions():
     active_auctions = Auction.query.filter(Auction.expiryDate > datetime.datetime.utcnow()).all()
     return render_template('auctions.html', auctions=active_auctions)
 
+@app.route('/create_auction', methods=['GET', 'POST'])
+@login_required
+def create_auction():
+    if request.method == 'POST':
+        image = request.form['image']
+        start_price = request.form['start_price']
+        reserve_price = request.form['reserve_price']
+        name = request.form['name']
+        description = request.form['description']
+        expiry_date = request.form['expiry_date']
+
+        # Convert input to correct data types
+        start_price = float(start_price)
+        reserve_price = float(reserve_price)
+        expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d')
+
+        auction = Auction(image=image, startPrice=start_price, reservePrice=reserve_price, name=name,
+                          description=description, expiryDate=expiry_date, userId=current_user.id)
+        db.session.add(auction)
+        db.session.commit()
+
+        flash('Auction created successfully!')
+        return redirect(url_for('index'))
+
+    return render_template('create_auction.html')
+
 if __name__ == '__main__':
     app.run(debug=True)

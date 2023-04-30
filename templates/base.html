@@ -18,6 +18,8 @@
             {% if current_user.is_authenticated %}
                 <a href="{{ url_for('user_profile') }}">Profile</a>
                 <a href="{{ url_for('auctions') }}">Auctions</a>
+                <a href="{{ url_for('create_auction') }}">Create Auction</a>
+                
                 <a href="{{ url_for('logout') }}">Logout</a>
             {% else %}
                 <a href="{{ url_for('login') }}">Login</a>
