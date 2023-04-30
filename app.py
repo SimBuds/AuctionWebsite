@@ -1,9 +1,9 @@
-import datetime
+import datetime, atexit
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-
+from apscheduler.schedulers.background import BackgroundScheduler
 from models import db, User, Auction, Bid
 
 app = Flask(__name__)
@@ -77,31 +77,136 @@ def auctions():
     active_auctions = Auction.query.filter(Auction.expiryDate > datetime.datetime.utcnow()).all()
     return render_template('auctions.html', auctions=active_auctions)
 
-@app.route('/create_auction', methods=['GET', 'POST'])
+@app.route('/create-auction', methods=['GET', 'POST'])
 @login_required
 def create_auction():
     if request.method == 'POST':
+        # Get form data and validate
         image = request.form['image']
-        start_price = request.form['start_price']
-        reserve_price = request.form['reserve_price']
+        start_price = float(request.form['start_price'])
+        reserve_price = float(request.form['reserve_price'])
         name = request.form['name']
         description = request.form['description']
-        expiry_date = request.form['expiry_date']
+        expiry_date = datetime.strptime(request.form['expiry_date'], '%Y-%m-%d')  # Assuming expiry_date is in 'YYYY-MM-DD' format
 
-        # Convert input to correct data types
-        start_price = float(start_price)
-        reserve_price = float(reserve_price)
-        expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d')
-
-        auction = Auction(image=image, startPrice=start_price, reservePrice=reserve_price, name=name,
-                          description=description, expiryDate=expiry_date, userId=current_user.id)
+        # Create new auction and save to the database
+        auction = Auction(image=image, start_price=start_price, reserve_price=reserve_price, name=name, description=description, expiry_date=expiry_date, userId=current_user.id)
         db.session.add(auction)
         db.session.commit()
 
-        flash('Auction created successfully!')
+        flash('Auction created successfully.')
+        return redirect(url_for('my_auctions'))
+
+    return render_template('auction_form.html')
+
+@app.route('/edit-auction/<int:auction_id>', methods=['GET', 'POST'])
+@login_required
+def edit_auction(auction_id):
+    auction = Auction.query.get(auction_id)
+    
+    if auction.userId != current_user.id:
+        flash("You don't have permission to edit this auction.")
         return redirect(url_for('index'))
 
-    return render_template('create_auction.html')
+    if request.method == 'POST':
+        # Get form data and validate
+        auction.image = request.form['image']
+        auction.start_price = float(request.form['start_price'])
+        auction.reserve_price = float(request.form['reserve_price'])
+        auction.name = request.form['name']
+        auction.description = request.form['description']
+        auction.expiry_date = datetime.strptime(request.form['expiry_date'], '%Y-%m-%d')
+
+        # Save changes to the database
+        db.session.commit()
+
+        flash('Auction updated successfully.')
+        return redirect(url_for('my_auctions'))
+
+    return render_template('auction_form.html', auction=auction, action="Edit")
+
+@app.route('/delete-auction/<int:auction_id>', methods=['POST'])
+@login_required
+def delete_auction(auction_id):
+    auction = Auction.query.get_or_404(auction_id)
+
+    # Ensure the current user is the owner of the auction or an admin
+    if current_user.id != auction.userId and current_user.role != 'admin':
+        flash('You do not have permission to delete this auction.')
+        return redirect(url_for('index'))
+
+    # Delete associated bids
+    Bid.query.filter_by(auctionId=auction_id).delete()
+
+    # Delete the auction
+    db.session.delete(auction)
+    db.session.commit()
+
+    flash('Auction deleted successfully.')
+    return redirect(url_for('my_auctions'))
+
+@app.route('/auction/<int:auction_id>', methods=['GET', 'POST'])
+@login_required
+def auction_detail(auction_id):
+    auction = Auction.query.get_or_404(auction_id)
+    bids = Bid.query.filter_by(auctionId=auction_id).order_by(Bid.amount.desc()).all()
+
+    if request.method == 'POST':
+        bid_amount = float(request.form['bid_amount'])
+
+        highest_bid = bids[0].amount if bids else auction.startPrice
+        if bid_amount > highest_bid:
+            new_bid = Bid(amount=bid_amount, userId=current_user.id, auctionId=auction_id, result="pending")
+            db.session.add(new_bid)
+            db.session.commit()
+            
+            bids = Bid.query.filter_by(auctionId=auction_id).order_by(Bid.amount.desc()).all()
+            flash('Your bid was successfully placed.')
+        else:
+            flash('Your bid must be higher than the current highest bid.')
+
+    return render_template('auction_detail.html', auction=auction, bids=bids)
+
+@app.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        # Update user information
+        current_user.username = request.form['username']
+        current_user.email = request.form['email']
+        db.session.commit()
+        flash('Profile updated successfully.')
+        return redirect(url_for('profile'))
+
+    return render_template('edit_profile.html')
+
+@app.route('/my-auctions')
+@login_required
+def my_auctions():
+    user_id = current_user.id
+    auctions = Auction.query.filter_by(userId=user_id).all()
+    return render_template('my_auctions.html', auctions=auctions)
+
+def check_expired_auctions():
+    expired_auctions = Auction.query.filter(Auction.expiryDate < datetime.now()).all()
+    for auction in expired_auctions:
+        bids = Bid.query.filter(Bid.auctionId == auction.id).order_by(Bid.amount.desc()).all()
+        if bids and bids[0].amount >= auction.reservePrice:
+            winning_bid = bids[0]
+            winning_bid.result = 'winning'
+            db.session.commit()
+        else:
+            for bid in bids:
+                bid.result = 'losing'
+            db.session.commit()
+
+# Initialize the scheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=check_expired_auctions, trigger="interval", minutes=2.5)
+scheduler.start()
+
+# Shut down the scheduler when exiting the app
+atexit.register(lambda: scheduler.shutdown())
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>{{ auction.name }}</h1>
+    <img src="{{ auction.image }}" alt="Auction Image">
+    <p>{{ auction.description }}</p>
+    <p>Start Price: ${{ auction.startPrice }}</p>
+    <p>Reserve Price: ${{ auction.reservePrice }}</p>
+    <p>Expires on: {{ auction.expiryDate.strftime("%Y-%m-%d %H:%M:%S") }}</p>
+
+    {% if bids %}
+        <p>Current highest bid: ${{ bids[0].amount }}</p>
+    {% else %}
+        <p>No bids yet. Be the first to bid!</p>
+    {% endif %}
+
+    <h2>Place your bid</h2>
+    <form method="POST" action="{{ url_for('auction_detail', auction_id=auction.id) }}">
+        <label for="bid_amount">Bid Amount</label>
+        <input type="number" name="bid_amount" step="0.01" min="{{ bids[0].amount+0.01 if bids else auction.startPrice+0.01 }}" required>
+        <button type="submit">Place Bid</button>
+    </form>
+
+    <h2>Bid History</h2>
+    <ul>
+        {% for bid in bids %}
+            <li>{{ bid.user.username }} - ${{ bid.amount }}</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

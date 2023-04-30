@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>My Auctions</h1>
+  <a href="{{ url_for('create_auction') }}" class="btn btn-primary">Create New Auction</a>
+  <table class="table">
+    <thead>
+      <tr>
+        <th scope="col">Image</th>
+        <th scope="col">Name</th>
+        <th scope="col">Start Price</th>
+        <th scope="col">Reserve Price</th>
+        <th scope="col">Expiry Date</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for auction in auctions %}
+        <tr>
+          <td><img src="{{ auction.image }}" alt="{{ auction.name }}" width="100" height="100"></td>
+          <td>{{ auction.name }}</td>
+          <td>{{ auction.startPrice }}</td>
+          <td>{{ auction.reservePrice }}</td>
+          <td>{{ auction.expiryDate }}</td>
+          <td>
+            <a href="{{ url_for('edit_auction', auction_id=auction.id) }}" class="btn btn-warning">Edit</a>
+            <a href="{{ url_for('auction_detail', auction_id=auction.id) }}" class="btn btn-info">View</a>
+            <a href="{{ url_for('delete_auction', auction_id=auction.id) }}" class="btn btn-danger">Delete</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
