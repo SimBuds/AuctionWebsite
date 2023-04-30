@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Admin Dashboard</h1>
+
+<h2>Users</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.role }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2>Auctions</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Seller</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for auction in auctions %}
+        <tr>
+            <td>{{ auction.id }}</td>
+            <td>{{ auction.name }}</td>
+            <td>{{ auction.description }}</td>
+            <td>{{ auction.user.username }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

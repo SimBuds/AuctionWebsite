@@ -11,6 +11,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///auction.db'
 app.config['SECRET_KEY'] = 'auctionMeow'
 db.init_app(app)
 
+# Create database
+@app.before_first_request
+def create_tables():
+    db.create_all()
+
 loginManager = LoginManager()
 loginManager.init_app(app)
 loginManager.login_view = 'login'
@@ -149,23 +154,41 @@ def delete_auction(auction_id):
 @login_required
 def auction_detail(auction_id):
     auction = Auction.query.get_or_404(auction_id)
-    bids = Bid.query.filter_by(auctionId=auction_id).order_by(Bid.amount.desc()).all()
+    # Get the current highest bid for the auction
+    highest_bid = Bid.query.filter_by(auctionId=auction_id).order_by(Bid.amount.desc()).first()
 
     if request.method == 'POST':
-        bid_amount = float(request.form['bid_amount'])
+        # Fetch the user's bid amount from the form
+        new_bid_amount = float(request.form['bid_amount'])
 
-        highest_bid = bids[0].amount if bids else auction.startPrice
-        if bid_amount > highest_bid:
-            new_bid = Bid(amount=bid_amount, userId=current_user.id, auctionId=auction_id, result="pending")
-            db.session.add(new_bid)
+        # Check if the new bid amount is valid and higher than the current highest bid
+        if highest_bid is None or new_bid_amount > highest_bid.amount:
+            # Update the existing user's bid or create a new bid
+            user_bid = Bid.query.filter_by(auctionId=auction_id, userId=current_user.id).first()
+            if user_bid:
+                user_bid.amount = new_bid_amount
+                user_bid.result = "pending"
+            else:
+                user_bid = Bid(amount=new_bid_amount, userId=current_user.id, auctionId=auction_id, result="pending")
+                db.session.add(user_bid)
+
+            # Save the updated bid to the database
             db.session.commit()
-            
-            bids = Bid.query.filter_by(auctionId=auction_id).order_by(Bid.amount.desc()).all()
-            flash('Your bid was successfully placed.')
+
+            # Update all other bids' results to "losing"
+            losing_bids = Bid.query.filter(Bid.auctionId == auction_id, Bid.id != user_bid.id)
+            for bid in losing_bids:
+                bid.result = "losing"
+            db.session.commit()
+
+            flash('Your bid has been successfully placed.')
         else:
             flash('Your bid must be higher than the current highest bid.')
 
-    return render_template('auction_detail.html', auction=auction, bids=bids)
+    # Fetch the updated highest bid for the auction
+    highest_bid = Bid.query.filter_by(auctionId=auction_id).order_by(Bid.amount.desc()).first()
+
+    return render_template('auction_detail.html', auction=auction, highest_bid=highest_bid)
 
 @app.route('/edit_profile', methods=['GET', 'POST'])
 @login_required
@@ -186,6 +209,24 @@ def my_auctions():
     user_id = current_user.id
     auctions = Auction.query.filter_by(userId=user_id).all()
     return render_template('my_auctions.html', auctions=auctions)
+
+@app.route('/my-bids')
+@login_required
+def my_bids():
+    user_bids = Bid.query.filter_by(userId=current_user.id).all()
+    return render_template('my_bids.html', bids=user_bids)
+
+@app.route('/admin')
+@login_required
+def admin_dashboard():
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page.')
+        return redirect(url_for('index'))
+
+    users = User.query.all()
+    auctions = Auction.query.all()
+    return render_template('admin_dashboard.html', users=users, auctions=auctions)
+
 
 def check_expired_auctions():
     expired_auctions = Auction.query.filter(Auction.expiryDate < datetime.now()).all()

@@ -12,7 +12,7 @@ class User(db.Model, UserMixin):
     password = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     role = Column(Enum("buyer", "seller", "admin"), nullable=False)
-
+    is_admin = Column(db.Boolean, default=False)
     auctions = relationship("Auction", backref="user")
     bids = relationship("Bid", backref="user")
 

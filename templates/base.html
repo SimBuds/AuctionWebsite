@@ -19,11 +19,16 @@
                 <a href="{{ url_for('user_profile') }}">Profile</a>
                 <a href="{{ url_for('auctions') }}">Auctions</a>
                 <a href="{{ url_for('create_auction') }}">Create Auction</a>
-                <a href="{{ url_for('my_auctions') }}">My Auctions</a>                
+                <a href="{{ url_for('my_auctions') }}">My Auctions</a>
+                <a href="{{ url_for('my_bids') }}">My Bids</a>               
                 <a href="{{ url_for('logout') }}">Logout</a>
             {% else %}
                 <a href="{{ url_for('login') }}">Login</a>
                 <a href="{{ url_for('register') }}">Register</a>
+            {% endif %}
+
+            {% if current_user.is_authenticated and current_user.is_admin %}
+                <li><a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
             {% endif %}
         </nav>
     </header>

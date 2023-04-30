@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>My Bids</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Auction</th>
+                <th>Item Name</th>
+                <th>Your Bid Amount</th>
+                <th>Current Highest Bid</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bid in bids %}
+                <tr>
+                    <td><a href="{{ url_for('auction_detail', auction_id=bid.auctionId) }}">View</a></td>
+                    <td>{{ bid.auction.name }}</td>
+                    <td>{{ bid.amount }}</td>
+                    <td>{{ bid.auction.bids[0].amount if bid.auction.bids else "No bids yet" }}</td>
+                    <td>{{ bid.result }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
