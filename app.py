@@ -5,6 +5,8 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import generate_password_hash, check_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
 from models import db, User, Auction, Bid
+from functools import wraps
+from flask import abort
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///auction.db'
@@ -15,6 +17,14 @@ db.init_app(app)
 @app.before_first_request
 def create_tables():
     db.create_all()
+
+# Assign admin role to the first user
+@app.before_first_request
+def assign_admin_role():
+    user = User.query.first()
+    user.role = 'admin'
+    user.is_admin = True
+    db.session.commit()
 
 loginManager = LoginManager()
 loginManager.init_app(app)
@@ -82,25 +92,29 @@ def auctions():
     active_auctions = Auction.query.filter(Auction.expiryDate > datetime.datetime.utcnow()).all()
     return render_template('auctions.html', auctions=active_auctions)
 
-@app.route('/create-auction', methods=['GET', 'POST'])
+@app.route('/create_auction', methods=['GET', 'POST'])
 @login_required
 def create_auction():
     if request.method == 'POST':
-        # Get form data and validate
         image = request.form['image']
-        start_price = float(request.form['start_price'])
-        reserve_price = float(request.form['reserve_price'])
+        start_price = request.form['start_price']
+        reserve_price = request.form['reserve_price']
         name = request.form['name']
         description = request.form['description']
-        expiry_date = datetime.strptime(request.form['expiry_date'], '%Y-%m-%d')  # Assuming expiry_date is in 'YYYY-MM-DD' format
+        expiry_date = request.form['expiry_date']
 
-        # Create new auction and save to the database
-        auction = Auction(image=image, start_price=start_price, reserve_price=reserve_price, name=name, description=description, expiry_date=expiry_date, userId=current_user.id)
+        # Convert input to correct data types
+        start_price = float(start_price)
+        reserve_price = float(reserve_price)
+        expiry_date = datetime.datetime.strptime(expiry_date, '%Y-%m-%d')
+
+        auction = Auction(image=image, startPrice=start_price, reservePrice=reserve_price, name=name,
+                          description=description, expiryDate=expiry_date, userId=current_user.id)
         db.session.add(auction)
         db.session.commit()
 
-        flash('Auction created successfully.')
-        return redirect(url_for('my_auctions'))
+        flash('Auction created successfully!')
+        return redirect(url_for('index'))
 
     return render_template('auction_form.html')
 
@@ -226,7 +240,6 @@ def admin_dashboard():
     users = User.query.all()
     auctions = Auction.query.all()
     return render_template('admin_dashboard.html', users=users, auctions=auctions)
-
 
 def check_expired_auctions():
     expired_auctions = Auction.query.filter(Auction.expiryDate < datetime.now()).all()

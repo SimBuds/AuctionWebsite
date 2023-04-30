@@ -2,17 +2,21 @@
 
 {% block content %}
   <form method="POST" action="{{ url_for('create_auction') }}">
+    <label for="name">Auction Name:</label>
+    <input type="text" id="name" name="name" required>
+
+    <label for="description">Description:</label>
+    <textarea id="description" name="description"></textarea>
+    
+
     <label for="image">Image URL:</label>
     <input type="text" id="image" name="image" required>
     
+    <label for="start_price">Start Price:</label>
+    <input type="number" step="0.01" id="start_price" name="start_price" required>
+    
     <label for="reserve_price">Reserve Price:</label>
     <input type="number" step="0.01" id="reserve_price" name="reserve_price" required>
-    
-    <label for="name">Auction Name:</label>
-    <input type="text" id="name" name="name" required>
-    
-    <label for="description">Description:</label>
-    <textarea id="description" name="description"></textarea>
     
     <label for="expiry_date">Expiry Date:</label>
     <input type="date" id="expiry_date" name="expiry_date" required>
