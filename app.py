@@ -13,22 +13,69 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///auction.db'
 app.config['SECRET_KEY'] = 'auctionMeow'
 db.init_app(app)
 
-# Create database
+# Create database the first time the app is run
 @app.before_first_request
 def create_tables():
     db.create_all()
 
-# Assign admin role to the first user
+# Assign admin role to the first user before launching app
 @app.before_first_request
 def assign_admin_role():
     user = User.query.first()
     user.role = 'admin'
     user.is_admin = True
     db.session.commit()
+    
+# Create scheduler to run every 5 minutes to check for expired auctions
+def check_expired_auctions():
+    expired_auctions = Auction.query.filter(Auction.expiryDate < datetime.now()).all()
+    for auction in expired_auctions:
+        bids = Bid.query.filter(Bid.auctionId == auction.id).order_by(Bid.amount.desc()).all()
+        if bids and bids[0].amount >= auction.reservePrice:
+            winning_bid = bids[0]
+            winning_bid.result = 'winning'
+            db.session.commit()
+        else:
+            for bid in bids:
+                bid.result = 'losing'
+            db.session.commit()
 
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=check_expired_auctions, trigger='interval', seconds=300)
+scheduler.start()
+atexit.register(lambda: scheduler.shutdown())
+
+# Create login manager
 loginManager = LoginManager()
 loginManager.init_app(app)
 loginManager.login_view = 'login'
+
+# Check if user is admin
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if current_user.is_admin == False:
+            return abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Check if user is logged in
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if current_user.is_authenticated == False:
+            return abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Check if user is a buyer or seller
+def buyer_or_seller_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if current_user.role == 'buyer' or current_user.role == 'seller':
+            return abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
 
 @loginManager.user_loader
 def load_user(user_id):
@@ -116,7 +163,7 @@ def create_auction():
         flash('Auction created successfully!')
         return redirect(url_for('index'))
 
-    return render_template('auction_form.html')
+    return render_template('create_auction.html')
 
 @app.route('/edit-auction/<int:auction_id>', methods=['GET', 'POST'])
 @login_required
@@ -142,7 +189,7 @@ def edit_auction(auction_id):
         flash('Auction updated successfully.')
         return redirect(url_for('my_auctions'))
 
-    return render_template('auction_form.html', auction=auction, action="Edit")
+    return render_template('edit_auction.html', auction=auction, action="Edit")
 
 @app.route('/delete-auction/<int:auction_id>', methods=['POST'])
 @login_required
@@ -240,27 +287,6 @@ def admin_dashboard():
     users = User.query.all()
     auctions = Auction.query.all()
     return render_template('admin_dashboard.html', users=users, auctions=auctions)
-
-def check_expired_auctions():
-    expired_auctions = Auction.query.filter(Auction.expiryDate < datetime.now()).all()
-    for auction in expired_auctions:
-        bids = Bid.query.filter(Bid.auctionId == auction.id).order_by(Bid.amount.desc()).all()
-        if bids and bids[0].amount >= auction.reservePrice:
-            winning_bid = bids[0]
-            winning_bid.result = 'winning'
-            db.session.commit()
-        else:
-            for bid in bids:
-                bid.result = 'losing'
-            db.session.commit()
-
-# Initialize the scheduler
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=check_expired_auctions, trigger="interval", minutes=2.5)
-scheduler.start()
-
-# Shut down the scheduler when exiting the app
-atexit.register(lambda: scheduler.shutdown())
 
 if __name__ == '__main__':
     app.run(debug=True)
