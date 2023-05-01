@@ -1,0 +1,10 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 100,
+            "driver": "SQLite",
+            "name": "AuctionWebpage",
+            "database": "${workspaceFolder:AuctionWebsite}/instance/auction.db"
+        }
+    ]
+}
